@@ -2,21 +2,22 @@
 /**
  * Zero-dep stdio MCP for Hyperliquid Info API (POST /info only).
  * No /exchange, no signing, no private keys.
+ * Version 0.2.0 — expanded market / user / vault / staking / spot tools.
  */
 
 import { createInterface } from "node:readline";
 
+const VERSION = "0.2.0";
 const BASE = (process.env.HYPERLIQUID_API_URL || "https://api.hyperliquid.xyz").replace(/\/$/, "");
 
 const TOOLS = [
+  // —— Market / meta (perp) ——
   {
     name: "get_all_mids",
     description: "MidMap: mid price string for every coin (book empty → last trade).",
     inputSchema: {
       type: "object",
-      properties: {
-        dex: { type: "string", description: "Perp dex name; omit for first perp dex." },
-      },
+      properties: { dex: { type: "string", description: "Perp dex name; omit for first perp dex." } },
       additionalProperties: false,
     },
   },
@@ -35,13 +36,21 @@ const TOOLS = [
     },
   },
   {
+    name: "get_recent_trades",
+    description: "RecentTrades[] for a coin (px, sz, side, time, tid, users).",
+    inputSchema: {
+      type: "object",
+      properties: { coin: { type: "string" } },
+      required: ["coin"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "get_meta",
     description: "Perp AssetMeta universe + margin tables (szDecimals, maxLeverage).",
     inputSchema: {
       type: "object",
-      properties: {
-        dex: { type: "string", description: "Perp dex name; omit for first perp dex." },
-      },
+      properties: { dex: { type: "string", description: "Perp dex name; omit for first perp dex." } },
       additionalProperties: false,
     },
   },
@@ -50,9 +59,80 @@ const TOOLS = [
     description: "[meta, AssetCtx[]] — markPx, oraclePx, funding, openInterest, dayNtlVlm.",
     inputSchema: {
       type: "object",
-      properties: {
-        dex: { type: "string", description: "Perp dex name; omit for first perp dex." },
-      },
+      properties: { dex: { type: "string", description: "Perp dex name; omit for first perp dex." } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_all_perp_metas",
+    description: "allPerpMetas: meta (+ contexts) for every perp dex including HIP-3.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_perp_dexs",
+    description: "perpDexs: list of builder-deployed perp dex descriptors (index 0 is null = main).",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_perp_dex_limits",
+    description: "perpDexLimits for a builder-deployed dex (dex name required; empty string not allowed).",
+    inputSchema: {
+      type: "object",
+      properties: { dex: { type: "string", description: 'e.g. "xyz"' } },
+      required: ["dex"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_perp_dex_status",
+    description: "perpDexStatus — totalNetDeposit etc. dex empty string = first perp dex.",
+    inputSchema: {
+      type: "object",
+      properties: { dex: { type: "string" } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_perps_at_open_interest_cap",
+    description: "Coin names currently at open-interest cap.",
+    inputSchema: {
+      type: "object",
+      properties: { dex: { type: "string" } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_perp_deploy_auction_status",
+    description: "Dutch auction status for perp deploy gas.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_perp_annotation",
+    description: "Category/description annotation for one perp coin.",
+    inputSchema: {
+      type: "object",
+      properties: { coin: { type: "string" } },
+      required: ["coin"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_perp_categories",
+    description: "[[coin, category], ...] mapping across HIP-3 / annotated perps.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_perp_concise_annotations",
+    description: "Concise category/keywords annotations for perps.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_margin_table",
+    description: "Margin table by numeric id (from meta.marginTables).",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "integer", description: "marginTableId" } },
+      required: ["id"],
       additionalProperties: false,
     },
   },
@@ -68,61 +148,6 @@ const TOOLS = [
         endTime: { type: "integer", description: "ms inclusive; default now" },
       },
       required: ["coin", "interval", "startTime"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "get_clearinghouse_state",
-    description: "ClearinghouseState for a user — marginSummary, assetPositions, withdrawable. Use master/sub address, not agent wallet.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        user: { type: "string", description: "0x… address" },
-        dex: { type: "string" },
-      },
-      required: ["user"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "get_open_orders",
-    description: "OpenOrder[] resting orders for a user.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        user: { type: "string" },
-        dex: { type: "string" },
-      },
-      required: ["user"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "get_user_fills",
-    description: "UserFill[] — up to 2000 most recent fills.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        user: { type: "string" },
-        aggregateByTime: { type: "boolean" },
-      },
-      required: ["user"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "get_order_status",
-    description: "Order status by oid (u64) or cloid (16-byte hex).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        user: { type: "string" },
-        oid: {
-          description: "Order id (number) or client order id (hex string)",
-          oneOf: [{ type: "integer" }, { type: "string" }],
-        },
-      },
-      required: ["user", "oid"],
       additionalProperties: false,
     },
   },
@@ -145,6 +170,422 @@ const TOOLS = [
     description: "Predicted funding rates across venues (first perp dex only).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
+  {
+    name: "get_exchange_status",
+    description: "ExchangeStatus — specialStatuses + server time.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_liquidatable",
+    description: "Currently liquidatable addresses/positions (may be empty).",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+
+  // —— Spot / outcomes / borrow-lend ——
+  {
+    name: "get_spot_meta",
+    description: "SpotMeta — tokens[] + universe[] (spot pair indices).",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_spot_meta_and_asset_ctxs",
+    description: "[SpotMeta, SpotAssetCtx[]] — mid/mark/day volume for spot pairs.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_token_details",
+    description: "TokenDetails for a spot tokenId (34-char hex from spotMeta.tokens).",
+    inputSchema: {
+      type: "object",
+      properties: { tokenId: { type: "string", description: "e.g. 0xc1fb593aeffbeb02f85e0308e9956a90" } },
+      required: ["tokenId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_spot_pair_deploy_auction_status",
+    description: "Dutch auction status for spot pair deploy.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_spot_deploy_state",
+    description: "Spot deploy auction / genesis state for a user (deployer view).",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_spot_clearinghouse_state",
+    description: "Spot balances for a user (source of truth under unified/portfolio margin).",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_outcome_meta",
+    description: "HIP-4 outcomeMeta — outcomes / questions / deployers.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_settled_outcome",
+    description: "SettledOutcome details by outcome id.",
+    inputSchema: {
+      type: "object",
+      properties: { outcome: { type: "integer" } },
+      required: ["outcome"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_all_borrow_lend_reserve_states",
+    description: "[[tokenIndex, BorrowLendReserveState], ...] for all tokens.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_borrow_lend_reserve_state",
+    description: "Borrow/lend reserve state for one token index.",
+    inputSchema: {
+      type: "object",
+      properties: { token: { type: "integer", description: "token index (0 = USDC)" } },
+      required: ["token"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_borrow_lend_user_state",
+    description: "User borrow/lend positions + health.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+
+  // —— User reads ——
+  {
+    name: "get_clearinghouse_state",
+    description: "ClearinghouseState — marginSummary, assetPositions, withdrawable. Use master/sub address, not agent wallet.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" }, dex: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_open_orders",
+    description: "OpenOrder[] resting orders for a user.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" }, dex: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_frontend_open_orders",
+    description: "FrontendOpenOrder[] — open orders with trigger/TP-SL/orderType fields.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" }, dex: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_historical_orders",
+    description: "Up to 2000 most recent historical orders for a user.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_fills",
+    description: "UserFill[] — up to 2000 most recent fills.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user: { type: "string" },
+        aggregateByTime: { type: "boolean" },
+      },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_fills_by_time",
+    description: "UserFill[] in [startTime,endTime]; ≤2000 per page, ≤10000 recent available.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user: { type: "string" },
+        startTime: { type: "integer", description: "ms inclusive" },
+        endTime: { type: "integer" },
+        aggregateByTime: { type: "boolean" },
+      },
+      required: ["user", "startTime"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_funding",
+    description: "User funding payment history (ledger) since startTime.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user: { type: "string" },
+        startTime: { type: "integer" },
+        endTime: { type: "integer" },
+      },
+      required: ["user", "startTime"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_non_funding_ledger_updates",
+    description: "Deposits, transfers, withdrawals, liquidations (non-funding ledger).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user: { type: "string" },
+        startTime: { type: "integer" },
+        endTime: { type: "integer" },
+      },
+      required: ["user", "startTime"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_twap_slice_fills",
+    description: "Up to 2000 most recent TWAP slice fills.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_order_status",
+    description: "Order status by oid (u64) or cloid (16-byte hex).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user: { type: "string" },
+        oid: {
+          description: "Order id (number) or client order id (hex string)",
+          oneOf: [{ type: "integer" }, { type: "string" }],
+        },
+      },
+      required: ["user", "oid"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_active_asset_data",
+    description: "ActiveAssetData — leverage, maxTradeSzs, availableToTrade, markPx for user+coin.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" }, coin: { type: "string" } },
+      required: ["user", "coin"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_rate_limit",
+    description: "UserRateLimit — cumVlm, nRequestsUsed/Cap/Surplus.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_role",
+    description: 'UserRole — "user"|"agent"|"vault"|"subAccount"|"missing".',
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_fees",
+    description: "UserFees + feeSchedule tiers, staking/referral discounts, daily volume.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_portfolio",
+    description: "Portfolio histories: day/week/month/allTime (+ perp* variants).",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_sub_accounts",
+    description: "SubAccount[] for a master user (clearinghouse + spot state each).",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_extra_agents",
+    description: "ExtraAgents[] — named API agents (address, validUntil) for a user.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_referral",
+    description: "Referral info — code, rewards, referredBy, referrerState.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_abstraction",
+    description: 'Account abstraction mode: "unifiedAccount"|"portfolioMargin"|"disabled"|"default"|"dexAbstraction".',
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_dex_abstraction",
+    description: "Whether HIP-3 DEX abstraction is enabled for the user (bool).",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_approved_builders",
+    description: "Builder addresses approved by the user.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_max_builder_fee",
+    description: "Max builder fee approved (tenths of a basis point) for user→builder.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" }, builder: { type: "string" } },
+      required: ["user", "builder"],
+      additionalProperties: false,
+    },
+  },
+
+  // —— Vault / staking ——
+  {
+    name: "get_vault_details",
+    description: "VaultDetails — APR, followers, portfolio, relationship. Optional user for followerState.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        vaultAddress: { type: "string" },
+        user: { type: "string", description: "Optional — follower perspective" },
+      },
+      required: ["vaultAddress"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_user_vault_equities",
+    description: "UserVaultEquity[] — vaultAddress + equity for a user.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_vault_summaries",
+    description: "VaultSummaries list (may be empty on some deployments).",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_delegations",
+    description: "Staking delegations for a user (validator, amount, lockedUntil).",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_delegator_summary",
+    description: "DelegatorSummary — delegated / undelegated / pending withdrawals.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_delegator_history",
+    description: "DelegatorHistory — stake/unstake events.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_delegator_rewards",
+    description: "DelegatorRewards — delegation/commission rewards over time.",
+    inputSchema: {
+      type: "object",
+      properties: { user: { type: "string" } },
+      required: ["user"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_validator_summaries",
+    description: "ValidatorSummary[] — stake, commission, jailed, recent blocks, stats.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
 ];
 
 async function info(body) {
@@ -153,7 +594,7 @@ async function info(body) {
     headers: {
       "content-type": "application/json",
       accept: "application/json",
-      "user-agent": "hyperliquid-info-mcp/0.1.0",
+      "user-agent": `hyperliquid-info-mcp/${VERSION}`,
     },
     body: JSON.stringify(body),
   });
@@ -181,53 +622,59 @@ function pick(obj, keys) {
   return out;
 }
 
+function req(args, ...keys) {
+  for (const k of keys) {
+    if (args[k] === undefined || args[k] === null || args[k] === "") {
+      throw new Error(`${k} is required`);
+    }
+  }
+}
+
 async function callTool(name, args = {}) {
   switch (name) {
     case "get_all_mids":
       return info({ type: "allMids", ...pick(args, ["dex"]) });
     case "get_l2_book":
-      if (!args.coin) throw new Error("coin is required");
-      return info({
-        type: "l2Book",
-        coin: args.coin,
-        ...pick(args, ["nSigFigs", "mantissa"]),
-      });
+      req(args, "coin");
+      return info({ type: "l2Book", coin: args.coin, ...pick(args, ["nSigFigs", "mantissa"]) });
+    case "get_recent_trades":
+      req(args, "coin");
+      return info({ type: "recentTrades", coin: args.coin });
     case "get_meta":
       return info({ type: "meta", ...pick(args, ["dex"]) });
     case "get_meta_and_asset_ctxs":
       return info({ type: "metaAndAssetCtxs", ...pick(args, ["dex"]) });
+    case "get_all_perp_metas":
+      return info({ type: "allPerpMetas" });
+    case "get_perp_dexs":
+      return info({ type: "perpDexs" });
+    case "get_perp_dex_limits":
+      req(args, "dex");
+      return info({ type: "perpDexLimits", dex: args.dex });
+    case "get_perp_dex_status":
+      return info({ type: "perpDexStatus", dex: args.dex ?? "" });
+    case "get_perps_at_open_interest_cap":
+      return info({ type: "perpsAtOpenInterestCap", ...pick(args, ["dex"]) });
+    case "get_perp_deploy_auction_status":
+      return info({ type: "perpDeployAuctionStatus" });
+    case "get_perp_annotation":
+      req(args, "coin");
+      return info({ type: "perpAnnotation", coin: args.coin });
+    case "get_perp_categories":
+      return info({ type: "perpCategories" });
+    case "get_perp_concise_annotations":
+      return info({ type: "perpConciseAnnotations" });
+    case "get_margin_table":
+      req(args, "id");
+      return info({ type: "marginTable", id: args.id });
     case "get_candles": {
-      if (!args.coin || !args.interval || args.startTime == null) {
-        throw new Error("coin, interval, and startTime are required");
-      }
-      const req = {
-        coin: args.coin,
-        interval: args.interval,
-        startTime: args.startTime,
-      };
-      if (args.endTime != null) req.endTime = args.endTime;
-      return info({ type: "candleSnapshot", req });
+      req(args, "coin", "interval", "startTime");
+      const reqBody = { coin: args.coin, interval: args.interval, startTime: args.startTime };
+      if (args.endTime != null) reqBody.endTime = args.endTime;
+      return info({ type: "candleSnapshot", req: reqBody });
     }
-    case "get_clearinghouse_state":
-      if (!args.user) throw new Error("user is required");
-      return info({ type: "clearinghouseState", user: args.user, ...pick(args, ["dex"]) });
-    case "get_open_orders":
-      if (!args.user) throw new Error("user is required");
-      return info({ type: "openOrders", user: args.user, ...pick(args, ["dex"]) });
-    case "get_user_fills":
-      if (!args.user) throw new Error("user is required");
-      return info({
-        type: "userFills",
-        user: args.user,
-        ...pick(args, ["aggregateByTime"]),
-      });
-    case "get_order_status":
-      if (!args.user || args.oid == null) throw new Error("user and oid are required");
-      return info({ type: "orderStatus", user: args.user, oid: args.oid });
     case "get_funding_history":
-      if (!args.coin || args.startTime == null) {
-        throw new Error("coin and startTime are required");
-      }
+      req(args, "coin", "startTime");
       return info({
         type: "fundingHistory",
         coin: args.coin,
@@ -236,6 +683,149 @@ async function callTool(name, args = {}) {
       });
     case "get_predicted_fundings":
       return info({ type: "predictedFundings" });
+    case "get_exchange_status":
+      return info({ type: "exchangeStatus" });
+    case "get_liquidatable":
+      return info({ type: "liquidatable" });
+
+    case "get_spot_meta":
+      return info({ type: "spotMeta" });
+    case "get_spot_meta_and_asset_ctxs":
+      return info({ type: "spotMetaAndAssetCtxs" });
+    case "get_token_details":
+      req(args, "tokenId");
+      return info({ type: "tokenDetails", tokenId: args.tokenId });
+    case "get_spot_pair_deploy_auction_status":
+      return info({ type: "spotPairDeployAuctionStatus" });
+    case "get_spot_deploy_state":
+      req(args, "user");
+      return info({ type: "spotDeployState", user: args.user });
+    case "get_spot_clearinghouse_state":
+      req(args, "user");
+      return info({ type: "spotClearinghouseState", user: args.user });
+    case "get_outcome_meta":
+      return info({ type: "outcomeMeta" });
+    case "get_settled_outcome":
+      req(args, "outcome");
+      return info({ type: "settledOutcome", outcome: args.outcome });
+    case "get_all_borrow_lend_reserve_states":
+      return info({ type: "allBorrowLendReserveStates" });
+    case "get_borrow_lend_reserve_state":
+      if (args.token == null) throw new Error("token is required");
+      return info({ type: "borrowLendReserveState", token: args.token });
+    case "get_borrow_lend_user_state":
+      req(args, "user");
+      return info({ type: "borrowLendUserState", user: args.user });
+
+    case "get_clearinghouse_state":
+      req(args, "user");
+      return info({ type: "clearinghouseState", user: args.user, ...pick(args, ["dex"]) });
+    case "get_open_orders":
+      req(args, "user");
+      return info({ type: "openOrders", user: args.user, ...pick(args, ["dex"]) });
+    case "get_frontend_open_orders":
+      req(args, "user");
+      return info({ type: "frontendOpenOrders", user: args.user, ...pick(args, ["dex"]) });
+    case "get_historical_orders":
+      req(args, "user");
+      return info({ type: "historicalOrders", user: args.user });
+    case "get_user_fills":
+      req(args, "user");
+      return info({ type: "userFills", user: args.user, ...pick(args, ["aggregateByTime"]) });
+    case "get_user_fills_by_time":
+      req(args, "user", "startTime");
+      return info({
+        type: "userFillsByTime",
+        user: args.user,
+        startTime: args.startTime,
+        ...pick(args, ["endTime", "aggregateByTime"]),
+      });
+    case "get_user_funding":
+      req(args, "user", "startTime");
+      return info({
+        type: "userFunding",
+        user: args.user,
+        startTime: args.startTime,
+        ...pick(args, ["endTime"]),
+      });
+    case "get_user_non_funding_ledger_updates":
+      req(args, "user", "startTime");
+      return info({
+        type: "userNonFundingLedgerUpdates",
+        user: args.user,
+        startTime: args.startTime,
+        ...pick(args, ["endTime"]),
+      });
+    case "get_user_twap_slice_fills":
+      req(args, "user");
+      return info({ type: "userTwapSliceFills", user: args.user });
+    case "get_order_status":
+      if (!args.user || args.oid == null) throw new Error("user and oid are required");
+      return info({ type: "orderStatus", user: args.user, oid: args.oid });
+    case "get_active_asset_data":
+      req(args, "user", "coin");
+      return info({ type: "activeAssetData", user: args.user, coin: args.coin });
+    case "get_user_rate_limit":
+      req(args, "user");
+      return info({ type: "userRateLimit", user: args.user });
+    case "get_user_role":
+      req(args, "user");
+      return info({ type: "userRole", user: args.user });
+    case "get_user_fees":
+      req(args, "user");
+      return info({ type: "userFees", user: args.user });
+    case "get_portfolio":
+      req(args, "user");
+      return info({ type: "portfolio", user: args.user });
+    case "get_sub_accounts":
+      req(args, "user");
+      return info({ type: "subAccounts", user: args.user });
+    case "get_extra_agents":
+      req(args, "user");
+      return info({ type: "extraAgents", user: args.user });
+    case "get_referral":
+      req(args, "user");
+      return info({ type: "referral", user: args.user });
+    case "get_user_abstraction":
+      req(args, "user");
+      return info({ type: "userAbstraction", user: args.user });
+    case "get_user_dex_abstraction":
+      req(args, "user");
+      return info({ type: "userDexAbstraction", user: args.user });
+    case "get_approved_builders":
+      req(args, "user");
+      return info({ type: "approvedBuilders", user: args.user });
+    case "get_max_builder_fee":
+      req(args, "user", "builder");
+      return info({ type: "maxBuilderFee", user: args.user, builder: args.builder });
+
+    case "get_vault_details":
+      req(args, "vaultAddress");
+      return info({
+        type: "vaultDetails",
+        vaultAddress: args.vaultAddress,
+        ...pick(args, ["user"]),
+      });
+    case "get_user_vault_equities":
+      req(args, "user");
+      return info({ type: "userVaultEquities", user: args.user });
+    case "get_vault_summaries":
+      return info({ type: "vaultSummaries" });
+    case "get_delegations":
+      req(args, "user");
+      return info({ type: "delegations", user: args.user });
+    case "get_delegator_summary":
+      req(args, "user");
+      return info({ type: "delegatorSummary", user: args.user });
+    case "get_delegator_history":
+      req(args, "user");
+      return info({ type: "delegatorHistory", user: args.user });
+    case "get_delegator_rewards":
+      req(args, "user");
+      return info({ type: "delegatorRewards", user: args.user });
+    case "get_validator_summaries":
+      return info({ type: "validatorSummaries" });
+
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -264,7 +854,7 @@ async function handle(msg) {
       ok(id, {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "hyperliquid-info", version: "0.1.0" },
+        serverInfo: { name: "hyperliquid-info", version: VERSION },
       });
       return;
     }

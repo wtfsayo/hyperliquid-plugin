@@ -1,13 +1,13 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "hyperliquid-info",
-  "version": "0.1.0",
-  "description": "Read-only Hyperliquid Info API — mids, L2 book, asset contexts, candles, clearinghouse, orders, fills, funding. No signing / no /exchange.",
+  "version": "0.2.0",
+  "description": "Read-only Hyperliquid Info API — perps/spot meta, books, candles, funding, clearinghouse, fills, vaults, staking, HIP-3/4. No signing / no /exchange.",
   "author": {
     "name": "Sayo",
     "email": "hi@sayo.wtf",
     "url": "https://github.com/wtfsayo"
   },
   "homepage": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api",
-  "keywords": ["hyperliquid", "perps", "info", "mcp"]
+  "keywords": ["hyperliquid", "perps", "spot", "info", "mcp", "vaults", "staking"]
 }
