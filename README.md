@@ -58,3 +58,7 @@ See `PROVE.md` for local schema + live MCP verification notes.
 ## License
 
 MIT
+
+## Repository
+
+https://github.com/wtfsayo/hyperliquid-plugin
