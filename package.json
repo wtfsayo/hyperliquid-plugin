@@ -1,7 +1,10 @@
 {
   "name": "hyperliquid-info",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Zero-dep stdio MCP for Hyperliquid POST /info (read-only) — market, spot, user, vault, staking"
+  "description": "Zero-dep stdio MCP for Hyperliquid POST /info (read-only) — market, spot, user, vault, staking",
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  }
 }
