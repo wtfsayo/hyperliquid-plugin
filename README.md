@@ -71,7 +71,7 @@ Every tool is read-only and returns compact JSON as text. List tools return a pa
 | --- | --- |
 | `get_spot_meta` | spot pairs with base/quote token names and ids (`coins`) |
 | `get_spot_meta_and_asset_ctxs` | spot pair rows + mid / mark / volume / supply (`coins`) |
-| `get_token_details` | supply / mid / mark (`tokenId`) |
+| `get_token_details` | supply / mid / mark + genesis list counts (`tokenId`; `genesis` pages one list) |
 | `get_spot_pair_deploy_auction_status` | spot pair auction |
 | `get_spot_deploy_state` | deployer auction state (`user`) |
 | `get_spot_clearinghouse_state` | spot balances (`user`) |

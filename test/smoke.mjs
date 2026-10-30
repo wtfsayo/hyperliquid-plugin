@@ -179,6 +179,16 @@ if (live) {
   check("limit=5 pages", body.returned === 5 && body.next_offset === 5 && body.truncated === true, textOf(page).slice(0, 200));
   const eth = JSON.parse(textOf(await callWithRetry(client, "get_meta_and_asset_ctxs", { coins: ["ETH"] })) || "{}");
   check("coins filter returns ETH row with funding", eth.items?.length === 1 && eth.items[0].name === "ETH" && "funding" in eth.items[0]);
+  const hypeArgs = { ...FIXTURES.calls.get_token_details, genesis: "userBalances", limit: 100, offset: 100 };
+  const hypeMsg = await callWithRetry(client, "get_token_details", hypeArgs);
+  checkResult("get_token_details genesis page", hypeMsg);
+  const hype = JSON.parse(textOf(hypeMsg) || "{}");
+  const balances = hype.genesis?.userBalances;
+  check(
+    "get_token_details pages genesis.userBalances",
+    balances?.offset === 100 && balances.returned === 100 && balances.total === hype.genesisCounts?.userBalances,
+    textOf(hypeMsg).slice(0, 300),
+  );
   for (const e of FIXTURES.errors.filter((e) => e.network)) {
     const msg = await callWithRetry(client, e.tool, e.args);
     check(`${e.tool} ${JSON.stringify(e.args)} isError`, msg.result?.isError === true);

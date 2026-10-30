@@ -41,6 +41,7 @@ const INTERVAL_MS = {
   "1M": 30 * DAY_MS,
 };
 const PERIODS = ["day", "week", "month", "allTime", "perpDay", "perpWeek", "perpMonth", "perpAllTime"];
+const GENESIS_LISTS = ["userBalances", "existingTokenBalances", "blacklistUsers"];
 
 // —— Shared property schemas ——
 const user = { type: "string", pattern: ADDRESS, description: "0x address of the master/sub-account (not an agent)." };
@@ -403,16 +404,31 @@ const SPEC = [
   tool(
     "get_token_details",
     "Spot token details",
-    "Use for one spot token's supply, mid and mark price.",
+    "Use for one spot token's supply, mid/mark price and deploy info. Genesis lists are returned as counts; pass genesis to page one.",
     {
       tokenId: {
         type: "string",
         pattern: "^0x[0-9a-fA-F]{32}$",
         description: "Token id (0x + 32 hex), e.g. baseTokenId from get_spot_meta.",
       },
+      genesis: {
+        type: "string",
+        enum: GENESIS_LISTS,
+        description: "Page this genesis list ([address, amount] rows) with limit/offset.",
+      },
+      ...page,
     },
     ["tokenId"],
-    (a) => info({ type: "tokenDetails", tokenId: a.tokenId }),
+    async (a) => {
+      const { genesis, ...details } = await info({ type: "tokenDetails", tokenId: a.tokenId });
+      if (!genesis) return { ...details, genesis };
+      const counts = Object.fromEntries(
+        GENESIS_LISTS.map((k) => [k, Array.isArray(genesis[k]) ? genesis[k].length : 0]),
+      );
+      const out = { ...details, genesisCounts: counts };
+      if (a.genesis) out.genesis = { [a.genesis]: shape(genesis[a.genesis], a, undefined, JSON.stringify(out).length) };
+      return out;
+    },
   ),
   tool(
     "get_spot_pair_deploy_auction_status",
