@@ -1,0 +1,24 @@
+{
+  "name": "hyperliquid-info",
+  "version": "0.2.0",
+  "description": "Read-only Hyperliquid Info API — perps/spot meta, books, candles, funding, clearinghouse, fills, vaults, staking, HIP-3/4. No signing / no /exchange.",
+  "author": {
+    "name": "Sayo",
+    "email": "hi@sayo.wtf",
+    "url": "https://github.com/wtfsayo"
+  },
+  "homepage": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api",
+  "repository": "https://github.com/wtfsayo/hyperliquid-plugin",
+  "license": "MIT",
+  "keywords": ["hyperliquid", "perps", "spot", "info", "mcp", "vaults", "staking"],
+  "mcpServers": {
+    "hyperliquid-info": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/index.mjs"],
+      "env": {
+        "HYPERLIQUID_API_URL": "${HYPERLIQUID_API_URL:-https://api.hyperliquid.xyz}"
+      }
+    }
+  }
+}
