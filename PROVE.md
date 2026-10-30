@@ -1,29 +1,26 @@
-# Prove note — hyperliquid-info 0.2.0
+# Prove note — hyperliquid-info 0.3.0
 
-## Schema / install
+Run `npm test` (`test/smoke.mjs`, zero dependencies). It starts the stdio server and checks:
 
-| Step | Result |
-| --- | --- |
-| Schema (`plugin.json` + `mcp.json` vs agent-plugins 1.0.0) | PASS |
-| `node --check server/index.mjs` | PASS |
-| Local install under `~/.cursor/plugins/local/hyperliquid-info` | PASS |
-| Live type probe (`_probe/LIVE.json`, gitignored) | 62/68 PASS (6 fail: undocumented / bad body) |
-| Full MCP live mainnet suite (legacy + new tools + error paths) | see `TEST-RESULTS.json` (gitignored) |
+- `initialize` (protocol version, `instructions`) and `tools/list`: the tool count matches `README.md`, every tool has a title, `readOnlyHint` and a fixture, and every property has a description or enum.
+- Argument validation errors (bad address, candle range, enum) come back as `isError` results with a usable message.
+- A hung upstream returns a timeout error, and stdin close waits for in-flight calls.
+- Live: every tool runs with the args in `test/fixtures.json`. Each result has no `structuredContent`, compact JSON text of 40,000 characters or less, no `isError`, and `next_offset` when truncated. Skipped offline or with `SMOKE_OFFLINE=1`.
+
+`claude plugin validate . --strict` checks the manifests.
 
 ## Scope
 
-Info API only. `/exchange` is intentionally not wrapped.
+Info API only. `/exchange` is not wrapped.
 
-## Failed / skipped types (not wired)
+## Info types not wired
 
 | type | Why |
 | --- | --- |
+| `liquidatable` | 422 deserialize for every body tried (`{}`, `user`, `dex`); tool removed in 0.3.0 |
+| `vaultSummaries` | returns `[]` on mainnet and testnet; tool removed in 0.3.0 (use `get_vault_details` / `get_user_vault_equities`) |
 | `userFeesSchedule` | 422 deserialize — use `userFees` (includes `feeSchedule`) |
 | `extraAgent` | 422 — use `extraAgents` |
 | `spotOpenOrders` / `spotUser` | 422 — use `openOrders` / `spotClearinghouseState` |
 | `leadingVaults` | 422 — websocket `webData3` only |
 | `outcomeDeployerLimits` | 500 on probe |
-
-## Version bump
-
-0.1.0 → 0.2.0 · UA `hyperliquid-info-mcp/0.2.0` · **11 → 61** tools.

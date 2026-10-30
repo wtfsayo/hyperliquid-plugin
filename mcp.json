@@ -5,10 +5,7 @@
       "type": "stdio",
       "command": "node",
       "args": ["server/index.mjs"],
-      "cwd": "${PLUGIN_ROOT}",
-      "env": {
-        "HYPERLIQUID_API_URL": "https://api.hyperliquid.xyz"
-      }
+      "cwd": "${PLUGIN_ROOT}"
     }
   }
 }
