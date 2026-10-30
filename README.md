@@ -31,6 +31,12 @@ Docs: [Info endpoint](https://hyperliquid.gitbook.io/hyperliquid-docs/for-develo
 2. Copy into a **real directory**: `~/.cursor/plugins/local/hyperliquid-info`
 3. Reload Window / enable local plugins if your org gates imports.
 
+## Install (Claude Code)
+
+Clone this repo, then start Claude Code with `claude --plugin-dir /path/to/hyperliquid-plugin`. `.claude-plugin/plugin.json` loads the skill and starts the MCP server with `node ${CLAUDE_PLUGIN_ROOT}/server/index.mjs`. The server has no dependencies, so it needs only Node on `PATH` and no `npm install`.
+
+For testnet, export `HYPERLIQUID_API_URL` before you launch Claude Code.
+
 ## MCP tools (61)
 
 ### Market / meta
